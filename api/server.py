@@ -56,7 +56,7 @@ async def websocket_endpoint(websocket: WebSocket):
             if degrees != last_degrees:
                 await websocket.send_json({"data": degrees})
                 last_degrees = degrees
-                await asyncio.sleep(0.1)
+            await asyncio.sleep(0.1)
     except Exception as e:
         print("Frontend connection closed")
         await websocket.close()

@@ -83,7 +83,7 @@ function Map({ center, zoom }: MapProps) {
       >
         <MapTilerLayerComponent />
         <LocationMarkers
-          mode="search"
+          mode="edit"
           locations={locations}
           edges={edges}
           setLocations={setLocations}
@@ -95,10 +95,11 @@ function Map({ center, zoom }: MapProps) {
         />
         <ScaledImageOverlay
           url="/huang.png"
-          center={[37.427935, -122.174265]}
-          scaleX={0.18}
-          scaleY={0.19}
-          rotation={105}
+          center={[37.42798, -122.17432]}
+          scaleX={0.0545}
+          scaleY={0.053}
+          rotation={15}
+          opacity={1}
         />
         <ScaledImageOverlay
           url="/you.png"

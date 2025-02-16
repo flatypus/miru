@@ -8,6 +8,7 @@ interface ScaledImageOverlayProps {
   scaleX: number;
   scaleY: number;
   rotation: number;
+  opacity?: number;
 }
 
 export const ScaledImageOverlay = ({
@@ -16,6 +17,7 @@ export const ScaledImageOverlay = ({
   scaleX = 1,
   scaleY = 1,
   rotation = 0,
+  opacity = 0.8,
 }: ScaledImageOverlayProps) => {
   const [rotatedImageUrl, setRotatedImageUrl] = useState<string>("");
   const [dimensions, setDimensions] = useState({ width: 0, height: 0 });
@@ -23,28 +25,29 @@ export const ScaledImageOverlay = ({
   useEffect(() => {
     const img = new Image();
     img.onload = () => {
-      // Calculate the diagonal of the image for rotation space
-      const diagonal = Math.sqrt(
-        img.width * img.width + img.height * img.height
-      );
+      // Calculate the new canvas dimensions to avoid clipping
+      const radians = (rotation * Math.PI) / 180;
+      const sin = Math.abs(Math.sin(radians));
+      const cos = Math.abs(Math.cos(radians));
+      const newWidth = img.width * cos + img.height * sin;
+      const newHeight = img.width * sin + img.height * cos;
 
-      // Make canvas size the diagonal * 2 to ensure no clipping during rotation
-      const canvasSize = diagonal * 2;
+      // Create a canvas with the new dimensions
       const canvas = document.createElement("canvas");
-      canvas.width = canvasSize;
-      canvas.height = canvasSize;
+      canvas.width = newWidth;
+      canvas.height = newHeight;
 
       const ctx = canvas.getContext("2d");
       if (!ctx) return;
 
-      // Clear the canvas with transparency
-      ctx.clearRect(0, 0, canvasSize, canvasSize);
+      // Clear the canvas and apply transformations
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.save();
+      ctx.translate(newWidth / 2, newHeight / 2); // Move to the center of the new canvas
+      ctx.rotate(radians); // Apply rotation
+      ctx.globalAlpha = opacity;
 
-      // Move to center and rotate
-      ctx.translate(canvasSize / 2, canvasSize / 2);
-      ctx.rotate((rotation * Math.PI) / 180);
-
-      // Draw image centered, maintaining original dimensions
+      // Draw the image centered on the canvas
       ctx.drawImage(
         img,
         -img.width / 2,
@@ -53,14 +56,17 @@ export const ScaledImageOverlay = ({
         img.height
       );
 
+      ctx.restore();
+
+      // Update the rotated image URL and dimensions
       setRotatedImageUrl(canvas.toDataURL());
       setDimensions({
-        width: img.width,
-        height: img.height,
+        width: newWidth,
+        height: newHeight,
       });
     };
     img.src = url;
-  }, [url, rotation]);
+  }, [url, rotation, opacity]);
 
   if (!rotatedImageUrl || !dimensions.width) return null;
 
@@ -83,7 +89,7 @@ export const ScaledImageOverlay = ({
     <ImageOverlay
       url={rotatedImageUrl}
       bounds={bounds as L.LatLngBoundsExpression}
-      opacity={0.8}
+      opacity={opacity}
     />
   );
 };

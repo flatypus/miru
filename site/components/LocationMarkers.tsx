@@ -227,6 +227,24 @@ export default function LocationMarkers({
     localStorage.setItem("mapEdges", JSON.stringify(updatedEdges));
   };
 
+  const handleMarkerDrag = (locationId: string, newPosition: L.LatLng) => {
+    if (mode === "edit") {
+      const updatedLocations = locations.map((loc) =>
+        loc.id === locationId
+          ? {
+              ...loc,
+              coordinates: [newPosition.lat, newPosition.lng] as [
+                number,
+                number
+              ],
+            }
+          : loc
+      );
+      setLocations(updatedLocations);
+      localStorage.setItem("mapLocations", JSON.stringify(updatedLocations));
+    }
+  };
+
   return (
     <>
       {/* Render path or edges */}
@@ -272,8 +290,11 @@ export default function LocationMarkers({
           <Marker
             key={location.id}
             position={location.coordinates}
+            draggable={mode === "edit"}
             eventHandlers={{
               click: (e) => handleMarkerClick(location.id, e),
+              dragend: (e) =>
+                handleMarkerDrag(location.id, e.target.getLatLng()),
             }}
           >
             <Popup className="custom-popup">

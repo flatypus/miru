@@ -3,7 +3,7 @@ import L from "leaflet";
 import { ScaledImageOverlay } from "./ScaledImageOverlay";
 import { MapContainer, useMap } from "react-leaflet";
 import { MaptilerLayer } from "@maptiler/leaflet-maptilersdk";
-import React, { useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import LocationMarkers from "./LocationMarkers";
 import SearchPanel from "./SearchPanel";
 
@@ -56,6 +56,11 @@ function Map({ center, zoom }: MapProps) {
   ]);
   const ws = useRef<WebSocket | null>(null);
   const [updateHook, setUpdateHook] = useState<number>(0);
+  const [progress, setProgress] = useState<number>(0);
+  const [searchPath, setSearchPath] = useState<string[] | null>(null);
+  const [progressLocation, setProgressLocation] = useState<[number, number]>([
+    0, 0,
+  ]);
 
   // Load saved data including calibration
   useEffect(() => {
@@ -117,6 +122,82 @@ function Map({ center, zoom }: MapProps) {
     }
   }, [calibrationDegrees, targetDegrees, userDegrees, lastUpdate, updateHook]);
 
+  const getProgressLocation = useCallback(
+    (progress: number) => {
+      if (searchPath && searchPath.length > 1) {
+        const path = searchPath.map((id) => locations.find((l) => l.id === id));
+
+        // Calculate total path distance
+        let totalDistance = 0;
+        for (let i = 0; i < path.length - 1; i++) {
+          const current = path[i];
+          const next = path[i + 1];
+          if (!current || !next) continue;
+          totalDistance += Math.sqrt(
+            Math.pow(current.coordinates[0] - next.coordinates[0], 2) +
+              Math.pow(current.coordinates[1] - next.coordinates[1], 2)
+          );
+        }
+
+        // Find target distance based on progress
+        const targetDistance = (progress / 100) * totalDistance;
+
+        // Find position along path
+        let coveredDistance = 0;
+        for (let i = 0; i < path.length - 1; i++) {
+          const current = path[i];
+          const next = path[i + 1];
+          if (!current || !next) continue;
+
+          const segmentDistance = Math.sqrt(
+            Math.pow(current.coordinates[0] - next.coordinates[0], 2) +
+              Math.pow(current.coordinates[1] - next.coordinates[1], 2)
+          );
+
+          if (coveredDistance + segmentDistance >= targetDistance) {
+            // Calculate position within this segment
+            const remainingDistance = targetDistance - coveredDistance;
+            const ratio = remainingDistance / segmentDistance;
+
+            const newPosition: [number, number] = [
+              current.coordinates[0] +
+                (next.coordinates[0] - current.coordinates[0]) * ratio,
+              current.coordinates[1] +
+                (next.coordinates[1] - current.coordinates[1]) * ratio,
+            ];
+            return newPosition;
+          }
+
+          coveredDistance += segmentDistance;
+        }
+
+        // If we reach the end, snap to final position
+        const lastPoint = path[path.length - 1];
+        if (lastPoint) {
+          return lastPoint.coordinates;
+        }
+      }
+    },
+    [searchPath, locations]
+  );
+
+  useEffect(() => {
+    const progressLocation = getProgressLocation(progress);
+    const targetProgressLocation = getProgressLocation(
+      Math.min(progress + 10, 100)
+    );
+    if (!progressLocation || !targetProgressLocation) return;
+    setProgressLocation(progressLocation);
+    const direction = [
+      targetProgressLocation[0] - progressLocation[0],
+      targetProgressLocation[1] - progressLocation[1],
+    ];
+    const targetAngle = Math.round(
+      Math.atan2(direction[1], direction[0]) * (180 / Math.PI)
+    );
+    setTargetDegrees(targetAngle);
+  }, [progress, getProgressLocation]);
+
   return (
     <div className="relative">
       <div className="absolute top-20 left-4 z-[10000] flex justify-center items-center gap-2 flex-col">
@@ -157,6 +238,16 @@ function Map({ center, zoom }: MapProps) {
           value={targetDegrees}
           onChange={(e) => setTargetDegrees(Number(e.target.value))}
         />
+
+        <p className="text-black text-sm">Progress: {progress}%</p>
+        <input
+          className="w-full"
+          type="range"
+          min={0}
+          max={100}
+          value={progress}
+          onChange={(e) => setProgress(Number(e.target.value))}
+        />
       </div>
       <MapContainer
         center={[center.lat, center.lng]}
@@ -179,6 +270,8 @@ function Map({ center, zoom }: MapProps) {
           onSelectEnd={setEndLocationId}
           degrees={userDegrees + calibrationDegrees}
           setUserLocation={setUserLocation}
+          searchPath={searchPath}
+          setSearchPath={setSearchPath}
         />
         <ScaledImageOverlay
           url="/huang.png"
@@ -197,7 +290,7 @@ function Map({ center, zoom }: MapProps) {
         />
         <ScaledImageOverlay
           url="/target.png"
-          center={userLocation}
+          center={progressLocation}
           scaleX={0.025}
           scaleY={0.025}
           rotation={targetDegrees}

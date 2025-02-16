@@ -38,6 +38,16 @@ app.add_middleware(
     allow_headers=["*"],  # Allows all headers
 )
 
+# Global variables
+coords = [37.4280207092758, -122.17424679547551]
+last_coords = [0, 0]
+degrees: float = 0
+last_degrees: float = None
+
+# ser = serial.Serial('/dev/cu.usbmodem1101', 9600, timeout=1)
+# print(f"Connected to {ser.name}")
+# ser.write(b'Hello, serial port!')
+
 @app.get("/")
 async def root():
     return {"message": "lmfao"}
@@ -46,6 +56,7 @@ async def root():
 @app.websocket("/ws-for-ios")
 async def websocket_endpoint_for_ios(websocket: WebSocket):
     global degrees
+    global coords
     await websocket.accept()
     print("IOS connection accepted")
     try:
@@ -56,24 +67,41 @@ async def websocket_endpoint_for_ios(websocket: WebSocket):
     except Exception as e:
         if websocket.client_state == WebSocketState.CONNECTED:
             await websocket.close()
+        print(e)
         print("IOS connection closed")
 
 
 @app.websocket("/ws-for-frontend")
 async def websocket_endpoint(websocket: WebSocket):
     global last_degrees
+    global last_coords
     await websocket.accept()
-    await websocket.send_json({"data": degrees})
+    await websocket.send_json({"data": {
+        "degrees": degrees,
+        "coordinates": [0, 0]
+    }})
     print("Frontend connection accepted")
     try:
         while True:
+            coords = open("./coordinates.txt", "r").read().split()
+            coords = list(map(float, coords))
+            if coords != last_coords:
+                await websocket.send_json({"data": {
+                    "degrees": degrees,
+                    "coordinates": coords
+                }})
+                last_coords = coords
             if degrees != last_degrees:
-                await websocket.send_json({"data": degrees})
+                await websocket.send_json({"data": {
+                    "degrees": degrees,
+                    "coordinates": coords
+                }})
                 last_degrees = degrees
             await asyncio.sleep(0.1)
     except Exception as e:
         if websocket.client_state == WebSocketState.CONNECTED:
             await websocket.close()
+        print(e)
         print("Frontend connection closed")
 
 

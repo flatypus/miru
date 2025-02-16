@@ -2,6 +2,8 @@ import json
 import re
 import threading
 import time
+from datetime import datetime
+
 import mss
 import mss.tools
 import openai
@@ -26,20 +28,24 @@ from vespa.package import (
     Function,
 )
 from vespa.deployment import VespaCloud
+import numpy as np
+import geopy.distance
 
 # Replace with your tenant name from the Vespa Cloud Console
 tenant_name = "michaelyu"
 # Replace with your application name (does not need to exist yet)
-application = "treehacks"
+application_large = "treehacks"
 
-package = ApplicationPackage(
-    name=application,
+package_large = ApplicationPackage(
+    name=application_large,
     schema=[
         Schema(
             name="doc",
             document=Document(
                 fields=[
                     Field(name="id", type="string", indexing=["summary"]),
+                    Field(name="coordinate_x", type="string", indexing=["summary"]),
+                    Field(name="coordinate_y", type="string", indexing=["summary"]),
                     Field(
                         name="embedding",
                         type="tensor<float>(x[512])",
@@ -83,12 +89,75 @@ package = ApplicationPackage(
 )
 
 # Connect to Vespa Cloud using pyvespa.
-vespa_cloud = VespaCloud(
+vespa_cloud_large = VespaCloud(
     tenant=tenant_name,
-    application=application,
-    application_package=package,  # Uses the package we defined above
+    application=application_large,
+    application_package=package_large,  # Uses the package we defined above
 )
-app = vespa_cloud.deploy()
+app_large = vespa_cloud_large.deploy()
+
+# tenant_name = "michaelyu"
+# # Replace with your application name (does not need to exist yet)
+# application_zoning = "treehackszoning"
+#
+# package_zoning = ApplicationPackage(
+#     name=application_zoning,
+#     schema=[
+#         Schema(
+#             name="doc",
+#             document=Document(
+#                 fields=[
+#                     Field(name="id", type="string", indexing=["summary"]),
+#                     Field(
+#                         name="embedding",
+#                         type="tensor<float>(x[512])",
+#                         indexing=["index", "attribute"],
+#                         ann=HNSW(distance_metric="angular"),
+#                         is_document_field=True,
+#                     )
+#                 ]
+#             ),
+#             rank_profiles=[
+#                 RankProfile(
+#                     name="image_search",
+#                     # The query input is a 512-dimensional tensor.
+#                     inputs=[("query(q)", "tensor<float>(x[512])")],
+#                     # Use the closeness function with a field reference for 'embedding'.
+#                     first_phase="closeness(field, embedding)",
+#                 )
+#             ],
+#         )
+#     ],
+#     components=[
+#         Component(
+#             id="e5",
+#             type="hugging-face-embedder",
+#             parameters=[
+#                 Parameter(
+#                     "transformer-model",
+#                     {
+#                         "url": "https://github.com/vespa-engine/sample-apps/raw/master/examples/model-exporting/model/e5-small-v2-int8.onnx"
+#                     },
+#                 ),
+#                 Parameter(
+#                     "tokenizer-model",
+#                     {
+#                         "url": "https://raw.githubusercontent.com/vespa-engine/sample-apps/master/examples/model-exporting/model/tokenizer.json"
+#                     },
+#                 ),
+#             ],
+#         )
+#     ],
+# )
+#
+# # Connect to Vespa Cloud using pyvespa.
+# vespa_cloud_zoning = VespaCloud(
+#     tenant=tenant_name,
+#     application=application_zoning,
+#     application_package=package_zoning,  # Uses the package we defined above
+# )
+# app_zoning = vespa_cloud_zoning.deploy()
+
 
 load_dotenv()
 openai.api_key = os.getenv("OPENAI_API_KEY")
@@ -131,6 +200,13 @@ room_number_map = {
     "212": "6",
     "212A": "6",
 }
+
+# zone_coord_map = {
+#     "2": [
+#         [37.42802843048584, -122.17422701418401],
+#
+#     ]
+# }
 
 # Global variable to store the previous zone response and a lock for thread safety.
 previous_zone_response = "4"
@@ -182,6 +258,8 @@ class AdjacentZoneStateMachine:
         :return: True if allowed; False otherwise.
         """
         with self.lock:
+
+
             # Allow the special exception between Zone 7 and Zone 4 (both directions)
             if (self.current_zone == "7" and next_zone == "4") or \
                (self.current_zone == "4" and next_zone == "7"):
@@ -261,10 +339,6 @@ class AdjacentZoneStateMachine:
         Transition to the next_zone if it's allowed.
         """
         with self.lock:
-            with open("degrees.txt", "r") as f:
-                global imu_data
-                imu_data = float(f.read().strip())
-
             if self.allowed_transition(next_zone):
                 # print(f"Transitioning from {self.current_zone} to {next_zone}.")
                 self.current_zone = next_zone
@@ -406,23 +480,25 @@ def find_nearest_images(query_image_path, top_k=3):
 
     # 2. Build YQL for nearest neighbor
     #    [ {"targetHits": K} ] is an optional parameter to set how many neighbors to retrieve
-    yql = 'select * from sources doc where ([{"targetHits":' + str(top_k) + '}]nearestNeighbor(embedding, q));'
+    yql = 'select * from doc where ([{"targetHits":' + str(top_k) + '}]nearestNeighbor(embedding, q));'
 
     # 3. Perform the query
     query_body = {
         "yql": yql,
         "hits": top_k,
         "ranking": "image_search",
-        "ranking.features.query(q)": embedding
+        "ranking.features.query(q)": embedding,
     }
 
-    result = app.query(body=query_body)
+    result = app_large.query(body=query_body)
 
     # 4. Extract top hits
     hits = result.hits
+
     # Return the IDs (or anything else you want)
-    nearest_ids = [hit["fields"]["id"] for hit in hits if "fields" in hit]
-    return nearest_ids
+    nearest_ids_x = [float(hit["fields"]["coordinate_x"]) for hit in hits if "fields" in hit]
+    nearest_ids_y = [float(hit["fields"]["coordinate_y"]) for hit in hits if "fields" in hit]
+    return [nearest_ids_x, nearest_ids_y]
 
 def most_common_first_character(ids):
     """
@@ -434,16 +510,16 @@ def most_common_first_character(ids):
     return most_common_char[0][0] if most_common_char else None
 
 def photo_shooter():
-    counter = 0
+    # counter = 0
     time.sleep(1)
     print("armed")
     while True:
-        if keyboard.is_pressed('enter'):
-            counter += 1
-            print(f"Taking photo {counter}")
-            screenshot = capture_middle_screenshot()
-            save_screenshot(screenshot, f"{counter}zone2.png")
-            time.sleep(0.1)
+        # if keyboard.is_pressed('i'):
+        #     counter += 1
+        print(f"Taking photo {datetime.now()}")
+        screenshot = capture_middle_screenshot()
+        save_screenshot(screenshot, f"photos/photo{datetime.now()}.png")
+        time.sleep(1/5.0)
 
 def location_finder_openai():
     # Instantiate the state machine once so that all threads share the same instance.
@@ -458,29 +534,86 @@ def location_finder_openai():
         threading.Thread(target=send_to_openai_zones, args=(filename, state_machine,)).start()
         time.sleep(0.1)
 
-def location_finder_vespa():
-    # Instantiate the state machine once so that all threads share the same instance.
-    state_machine = AdjacentZoneStateMachine(["2", "3", "4", "5", "6", "7", "8"], "2")
-
+# def location_finder_vespa_zone():
+#     # Instantiate the state machine once so that all threads share the same instance.
+#     state_machine = AdjacentZoneStateMachine(["2", "3", "4", "5", "6", "7", "8"], "2")
+#
+#     # while True:
+#     screenshot = capture_middle_screenshot()
+#     filename = save_screenshot(screenshot)
+#
+#     top_hits = find_nearest_images(filename, app_zoning, top_k=5)
+#     most_common_char = most_common_first_character(top_hits)
+#     old_zone = state_machine.current_zone
+#     state_machine.transition(most_common_char)
+#     if state_machine.current_zone != old_zone:
+#         print("Current Zone:", state_machine.current_zone)
+#
+def location_finder_vespa_big():
     # while True:
     screenshot = capture_middle_screenshot()
     filename = save_screenshot(screenshot)
 
-    top_hits = find_nearest_images(filename, top_k=5)
-    most_common_char = most_common_first_character(top_hits)
-    old_zone = state_machine.current_zone
-    state_machine.transition(most_common_char)
-    if state_machine.current_zone != old_zone:
-        with open("zone.txt", "w") as f:
-            f.write(state_machine.current_zone)
-        print("Current Zone:", state_machine.current_zone)
+    top_hits = find_nearest_images(filename, top_k=3)
+
+    if top_hits is None:
+        return
+
+    # Extract x and y coordinates
+    x_coords = top_hits[0]
+    y_coords = top_hits[1]
+
+    def calculate_iqr(data):
+        q1 = np.percentile(data, 25)
+        q3 = np.percentile(data, 75)
+        iqr = q3 - q1
+        return q1, q3, iqr
+
+    def filter_outliers(data):
+        q1, q3, iqr = calculate_iqr(data)
+        lower_bound = q1 - 1.5 * iqr
+        upper_bound = q3 + 1.5 * iqr
+        return [x for x in data if lower_bound <= x <= upper_bound]
+
+    filtered_x_coords = filter_outliers(x_coords)
+    filtered_y_coords = filter_outliers(y_coords)
+
+    # Sort and take the 5 middle values
+    def get_middle_values(data, n=5):
+        sorted_data = sorted(data)
+        mid_index = len(sorted_data) // 2
+        start = max(0, mid_index - n // 2)
+        end = start + n
+        return sorted_data[start:end]
+
+    middle_x_coords = np.mean(get_middle_values(filtered_x_coords))
+    middle_y_coords = np.mean(get_middle_values(filtered_y_coords))
+
+    with open("coordinates.txt", "r") as file:
+        old_coords = file.read().split()
+        old_coords = list(map(float, old_coords))
+
+    new_coords = (middle_x_coords, middle_y_coords)
+
+    distance = geopy.distance.distance(old_coords, new_coords).meters
+
+    if distance > 5.0:
+        print(f"Distance: {distance}m")
+        return
+
+    with open("coordinates.txt", "w") as file:
+        file.write(f"{middle_x_coords}\n{middle_y_coords}")
+    print(f"x: {middle_x_coords} y: {middle_y_coords}")
+    # return [middle_x_coords, middle_y_coords]
 
 def main():
-    # start_time = time.time()
+    coord = [37.4280207092758, -122.17424679547551]
+    with open("coordinates.txt", "w") as file:
+        file.write(f"{coord[0]}\n{coord[1]}")
     while True:
-        threading.Thread(target=location_finder_vespa, args=()).start()
-        time.sleep(1/100)
-    # location_finder_vespa()
+        threading.Thread(target=location_finder_vespa_big, args=()).start()
+        # threading.Thread(target=location_finder_vespa_zone, args=()).start()
+        time.sleep(1/5)
 
 if __name__ == "__main__":
     main()

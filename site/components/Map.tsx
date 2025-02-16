@@ -3,11 +3,9 @@ import L from "leaflet";
 import { ScaledImageOverlay } from "./ScaledImageOverlay";
 import { MapContainer, useMap } from "react-leaflet";
 import { MaptilerLayer } from "@maptiler/leaflet-maptilersdk";
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import LocationMarkers from "./LocationMarkers";
 import SearchPanel from "./SearchPanel";
-
-const COMPASS_OFFSET = -15;
 
 // Custom component to add MapTiler layer
 function MapTilerLayerComponent() {
@@ -50,29 +48,62 @@ function Map({ center, zoom }: MapProps) {
   const [startLocationId, setStartLocationId] = useState<string | null>(null);
   const [endLocationId, setEndLocationId] = useState<string | null>(null);
   const [userDegrees, setUserDegrees] = useState<number>(0);
+  const [calibrationDegrees, setCalibrationDegrees] = useState<number>(0);
+  const ws = useRef<WebSocket | null>(null);
 
-  useEffect(() => {
-    // websocket to get location data
-    const ws = new WebSocket("ws://localhost:4000/ws-for-frontend");
-    ws.onmessage = (event) => {
-      const { data } = JSON.parse(event.data);
-      setUserDegrees(data);
-    };
-  }, []);
-
+  // Load saved data including calibration
   useEffect(() => {
     const savedLocations = localStorage.getItem("mapLocations");
     const savedEdges = localStorage.getItem("mapEdges");
-    if (savedLocations) {
-      setLocations(JSON.parse(savedLocations));
-    }
-    if (savedEdges) {
-      setEdges(JSON.parse(savedEdges));
-    }
+    const savedCalibration = localStorage.getItem("calibrationDegrees");
+
+    if (savedLocations) setLocations(JSON.parse(savedLocations));
+    if (savedEdges) setEdges(JSON.parse(savedEdges));
+    if (savedCalibration) setCalibrationDegrees(Number(savedCalibration));
+  }, []);
+
+  // Save calibration when it changes
+  useEffect(() => {
+    localStorage.setItem("calibrationDegrees", calibrationDegrees.toString());
+  }, [calibrationDegrees]);
+
+  useEffect(() => {
+    // websocket to get location data
+    const ws_frontend = new WebSocket("ws://localhost:4000/ws-for-frontend");
+    ws_frontend.onmessage = (event) => {
+      const { data } = JSON.parse(event.data);
+      setUserDegrees(data);
+    };
+
+    ws.current = new WebSocket("ws://localhost:4000/ws-for-buttons");
   }, []);
 
   return (
     <div className="relative">
+      <div className="absolute top-20 left-4 z-[10000] flex justify-center items-center gap-2 flex-col">
+        {["Button #1", "Button #2", "Button #3"].map((button, index) => (
+          <button
+            key={button}
+            className="bg-white rounded-lg p-2 text-black border-2 border-black text-sm hover:scale-105 transition-all duration-150 cursor-pointer active:scale-95"
+            onClick={() => {
+              ws.current?.send(JSON.stringify({ button: button, index }));
+            }}
+          >
+            Trigger {button}
+          </button>
+        ))}
+        <p className="text-black text-sm">
+          Calibration: +{calibrationDegrees}°
+        </p>
+        <input
+          className="w-full"
+          type="range"
+          min={0}
+          max={360}
+          value={calibrationDegrees}
+          onChange={(e) => setCalibrationDegrees(Number(e.target.value))}
+        />
+      </div>
       <MapContainer
         center={[center.lat, center.lng]}
         zoom={zoom}
@@ -83,7 +114,7 @@ function Map({ center, zoom }: MapProps) {
       >
         <MapTilerLayerComponent />
         <LocationMarkers
-          mode="edit"
+          mode="search"
           locations={locations}
           edges={edges}
           setLocations={setLocations}
@@ -106,7 +137,7 @@ function Map({ center, zoom }: MapProps) {
           center={[37.427935, -122.174265]}
           scaleX={0.1}
           scaleY={0.1}
-          rotation={userDegrees + COMPASS_OFFSET}
+          rotation={userDegrees + calibrationDegrees}
         />
       </MapContainer>
       <SearchPanel

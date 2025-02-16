@@ -11,9 +11,5 @@ const STANFORD = {
 
 export default function Home() {
   const center = new L.LatLng(STANFORD.latitude, STANFORD.longitude);
-  return (
-    <div>
-      <Map center={center} zoom={20} />
-    </div>
-  );
+  return <Map center={center} zoom={20} />;
 }

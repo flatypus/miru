@@ -1,43 +1,44 @@
 import os
 import queue
 import time
-import wave
-import numpy as np
-import pyaudio
 import torch
+import torchaudio
+import pyaudio
+import numpy as np
+import wave
 from groq import Groq
 from silero_vad import load_silero_vad
-
-# Load Silero VAD model
-model = load_silero_vad()
-device = torch.device("cpu")  # Run on CPU
-model.to(device)
-
-# Groq API setup
-client = Groq(api_key='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')
-
-# PyAudio settings
-FORMAT = pyaudio.paInt16
-CHANNELS = 1
-RATE = 16000  # Silero VAD requires 16kHz
-CHUNK = 512  # Silero VAD only supports 512 for 16kHz
 
 
 class SpeechRecognizer:
     """Modular Speech Recognition using Silero VAD & Groq Whisper."""
 
-    def __init__(self):
+    def __init__(self, api_key: str):
+        self.api_key = api_key
+        self.client = Groq(api_key=self.api_key)
+
         self.audio_queue = queue.Queue()
         self.running = True
         self.pyaudio_instance = pyaudio.PyAudio()
 
+        # Load Silero VAD model
+        self.model = load_silero_vad()
+        self.device = torch.device("cpu")  # Run on CPU
+        self.model.to(self.device)
+
+        # PyAudio settings
+        self.FORMAT = pyaudio.paInt16
+        self.CHANNELS = 1
+        self.RATE = 16000  # Silero VAD requires 16kHz
+        self.CHUNK = 512  # Silero VAD only supports 512 for 16kHz
+
         # Set up PyAudio input stream
         self.stream = self.pyaudio_instance.open(
-            format=FORMAT,
-            channels=CHANNELS,
-            rate=RATE,
+            format=self.FORMAT,
+            channels=self.CHANNELS,
+            rate=self.RATE,
             input=True,
-            frames_per_buffer=CHUNK,
+            frames_per_buffer=self.CHUNK,
             stream_callback=self.audio_callback
         )
 
@@ -49,15 +50,15 @@ class SpeechRecognizer:
     def save_audio(self, filename, audio_data):
         """Save recorded audio to a .m4a file for transcription."""
         with wave.open(filename, "wb") as wf:
-            wf.setnchannels(CHANNELS)
-            wf.setsampwidth(self.pyaudio_instance.get_sample_size(FORMAT))
-            wf.setframerate(RATE)
+            wf.setnchannels(self.CHANNELS)
+            wf.setsampwidth(self.pyaudio_instance.get_sample_size(self.FORMAT))
+            wf.setframerate(self.RATE)
             wf.writeframes(b''.join(audio_data))
 
     def transcribe_audio(self, filename):
         """Send recorded audio file to Groq Whisper for transcription."""
         with open(filename, "rb") as file:
-            transcription = client.audio.transcriptions.create(
+            transcription = self.client.audio.transcriptions.create(
                 file=(filename, file.read()),
                 model="whisper-large-v3-turbo",
                 response_format="verbose_json",
@@ -78,11 +79,11 @@ class SpeechRecognizer:
             in_data = self.audio_queue.get()
             audio_chunk = np.frombuffer(in_data, dtype=np.int16)
             audio_tensor = torch.from_numpy(audio_chunk).float() / 32768.0  # Normalize audio
-            audio_tensor = audio_tensor.unsqueeze(0).to(device)
+            audio_tensor = audio_tensor.unsqueeze(0).to(self.device)
 
             # Compute VAD probability
             with torch.no_grad():
-                vad_prob = model(audio_tensor, sr=16000).item()
+                vad_prob = self.model(audio_tensor, sr=16000).item()
 
             if vad_prob > 0.5:
                 if not speech_detected:

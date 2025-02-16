@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Compass Data</title>
+  </head>
+  <body>
+    <h1>Compass Data</h1>
+    <button id="permission-btn">Enable Device Orientation</button>
+    <div id="compass-data">
+      <p>X: <span id="x">0</span></p>
+      <p>Y: <span id="y">0</span></p>
+      <p>Z: <span id="z">0</span></p>
+    </div>
+
+    <script>
+      const button = document.getElementById("permission-btn");
+
+      button.addEventListener("click", async () => {
+        try {
+          initializeCompass();
+        } catch (error) {
+          console.error("Error requesting permission:", error);
+          document.getElementById("compass-data").innerHTML = JSON.stringify({
+            error: error.message,
+          });
+        }
+      });
+
+      function initializeCompass() {
+        window.addEventListener(
+          "deviceorientation",
+          handleOrientationEvent,
+          true
+        );
+      }
+
+      function handleOrientationEvent(event) {
+        const rotateDegrees = event.alpha; // alpha: rotation around z-axis
+        const leftToRight = event.gamma; // gamma: left to right
+        const frontToBack = event.beta; // beta: front back motion
+
+        document.getElementById("x").textContent = leftToRight?.toFixed(1) || 0;
+        document.getElementById("y").textContent = frontToBack?.toFixed(1) || 0;
+        document.getElementById("z").textContent =
+          rotateDegrees?.toFixed(1) || 0;
+      }
+    </script>
+  </body>
+</html>

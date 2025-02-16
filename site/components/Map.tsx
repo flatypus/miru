@@ -7,6 +7,8 @@ import React, { useEffect, useState } from "react";
 import LocationMarkers from "./LocationMarkers";
 import SearchPanel from "./SearchPanel";
 
+const COMPASS_OFFSET = -15;
+
 // Custom component to add MapTiler layer
 function MapTilerLayerComponent() {
   const map = useMap();
@@ -47,6 +49,16 @@ function Map({ center, zoom }: MapProps) {
   const [edges, setEdges] = useState<Edge[]>([]);
   const [startLocationId, setStartLocationId] = useState<string | null>(null);
   const [endLocationId, setEndLocationId] = useState<string | null>(null);
+  const [userDegrees, setUserDegrees] = useState<number>(0);
+
+  useEffect(() => {
+    // websocket to get location data
+    const ws = new WebSocket("ws://localhost:4000/ws-for-frontend");
+    ws.onmessage = (event) => {
+      const { data } = JSON.parse(event.data);
+      setUserDegrees(data);
+    };
+  }, []);
 
   useEffect(() => {
     const savedLocations = localStorage.getItem("mapLocations");
@@ -87,6 +99,13 @@ function Map({ center, zoom }: MapProps) {
           scaleX={0.18}
           scaleY={0.19}
           rotation={105}
+        />
+        <ScaledImageOverlay
+          url="/you.png"
+          center={[37.427935, -122.174265]}
+          scaleX={0.1}
+          scaleY={0.1}
+          rotation={userDegrees + COMPASS_OFFSET}
         />
       </MapContainer>
       <SearchPanel

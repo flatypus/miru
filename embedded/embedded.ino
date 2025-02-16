@@ -1,87 +1,63 @@
-#include "SoftwareSerial.h"
-#include <PWMServo.h>
-#include <Wire.h>
+#include "GY_85.h"
 
-PWMServo servo1;
-
-#pragma region SensorObjects
-#pragma endregion
-
-long BAUD_RATE = 57600;
-
-#pragma region GlobalVariables
-#define HMC5883L_ADDRESS 0x1E
-#pragma endregion
-
-
-// void mainSensorThread()
-// {
-//     while (1)
-//     {
-//       sensor.read();
-//       delay(1);
-//     }
-// }
+// Create module object
+GY_85 GY85;
 
 void setup()
 {
-    Serial.begin(BAUD_RATE);
-    Wire.begin();
+    // Initialize the serial communication:
+    Serial.begin(9600);
 
-    // Initialize HMC5883L
-    Wire.beginTransmission(HMC5883L_ADDRESS);
-    Wire.write(0x02);
-    Wire.write(0x00);
-    Wire.endTransmission();
-    servo1.attach(22);
-}
-
-void println(const char *data)
-{
-    int dataLength = strlen(data);
-    char *str = (char *)malloc(15 + dataLength + (dataLength / 10));
-    sprintf(str, "AT+SEND=69,%d,%s", dataLength, data);
-    Serial.print("[Sending]: ");
-    Serial.println(str);
-    free(str);
+    // Initialize module
+    GY85.init();
 }
 
 void loop()
 {
-  // char buffer[255];
-  // sprintf(
-  //     buffer,
-  //     "%i,%i,%i,%i,%i,%i,%i,%i,%i,%i,%i,%i",
-  //     realTemperature, realPressure, realAltitude, relativeAltitude, latitude, longitude, accelX, accelY, accelZ, gyroX, gyroY, gyroZ);
+    // Read data from sensors
+    int *accelerometerReadings = GY85.readFromAccelerometer();
+    int ax = GY85.accelerometer_x(accelerometerReadings);
+    int ay = GY85.accelerometer_y(accelerometerReadings);
+    int az = GY85.accelerometer_z(accelerometerReadings);
 
-  // if (confirmation == 1)
-  // {
-  //     confirmation = 0;
-  //     delay(250);
-  // }
+    int *compassReadings = GY85.readFromCompass();
+    int cx = GY85.compass_x(compassReadings);
+    int cy = GY85.compass_y(compassReadings);
+    int cz = GY85.compass_z(compassReadings);
 
-  // println(buffer);
+    float *gyroReadings = GY85.readGyro();
+    float gx = GY85.gyro_x(gyroReadings);
+    float gy = GY85.gyro_y(gyroReadings);
+    float gz = GY85.gyro_z(gyroReadings);
+    float gt = GY85.temp(gyroReadings);
 
-  int16_t x, y, z;
-  
-  Wire.beginTransmission(HMC5883L_ADDRESS);
-  Wire.write(0x03); // Select register 3, X MSB register
-  Wire.endTransmission();
+    // Log it to serial port
+    Serial.print("accelerometer");
+    Serial.print(" x:");
+    Serial.print(ax);
+    Serial.print(" y:");
+    Serial.print(ay);
+    Serial.print(" z:");
+    Serial.print(az);
 
-  Wire.requestFrom(HMC5883L_ADDRESS, 6); // Read 6 bytes
-  if (Wire.available() == 6) {
-    x = Wire.read() << 8 | Wire.read();
-    z = Wire.read() << 8 | Wire.read();
-    y = Wire.read() << 8 | Wire.read();
-  }
+    Serial.print("\t compass");
+    Serial.print(" x:");
+    Serial.print(cx);
+    Serial.print(" y:");
+    Serial.print(cy);
+    Serial.print(" z:");
+    Serial.print(cz);
 
-  // Calculate heading
-  float heading = atan2(y, x) * 180.0 / PI;
-  if (heading < 0) heading += 360; // Convert to 0-360 degrees
+    Serial.print("\t  gyro");
+    Serial.print(" x:");
+    Serial.print(gx);
+    Serial.print(" y:");
+    Serial.print(gy);
+    Serial.print(" z:");
+    Serial.print(gz);
+    Serial.print("\t gyro temp:");
+    Serial.println(gt);
 
-  Serial.print("Heading: ");
-  Serial.print(heading);
-  Serial.println("°");
-
-  delay(500);
+    // Make delay between readings
+    delay(100);
 }

@@ -80,7 +80,7 @@ function Map({ center, zoom }: MapProps) {
 
   useEffect(() => {
     // websocket to get location data
-    const ws_frontend = new WebSocket("ws://localhost:4000/ws-for-frontend");
+    const ws_frontend = new WebSocket("ws://100.125.96.81:4000/ws-for-frontend");
     ws_frontend.onmessage = (event) => {
       const {data} = JSON.parse(event.data);
       const {degrees, coordinates} = data;
@@ -93,7 +93,7 @@ function Map({ center, zoom }: MapProps) {
       );
     }
 
-    ws.current = new WebSocket("ws://localhost:4000/ws-for-buttons");
+    ws.current = new WebSocket("ws://100.125.96.81:4000/ws-for-buttons");
   }, []);
 
   useEffect(() => {

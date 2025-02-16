@@ -598,22 +598,23 @@ def location_finder_vespa_big():
     distance = geopy.distance.distance(old_coords, new_coords).meters
 
     if distance > 5.0:
-        print(f"Distance: {distance}m")
+        # print(f"Distance: {distance}m")
         return
 
     with open("coordinates.txt", "w") as file:
         file.write(f"{middle_x_coords}\n{middle_y_coords}")
-    print(f"x: {middle_x_coords} y: {middle_y_coords}")
+    # print(f"x: {middle_x_coords} y: {middle_y_coords}")
     # return [middle_x_coords, middle_y_coords]
 
 def main():
+
     coord = [37.4280207092758, -122.17424679547551]
     with open("coordinates.txt", "w") as file:
         file.write(f"{coord[0]}\n{coord[1]}")
     while True:
         threading.Thread(target=location_finder_vespa_big, args=()).start()
+        time.sleep(0.1)
         # threading.Thread(target=location_finder_vespa_zone, args=()).start()
-        time.sleep(1/5)
 
 if __name__ == "__main__":
     main()

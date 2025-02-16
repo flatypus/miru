@@ -4,7 +4,6 @@ import threading
 import time
 import mss
 import mss.tools
-import openai
 from dotenv import load_dotenv
 import base64
 import keyboard
@@ -261,6 +260,10 @@ class AdjacentZoneStateMachine:
         Transition to the next_zone if it's allowed.
         """
         with self.lock:
+            with open("degrees.txt", "r") as f:
+                global imu_data
+                imu_data = float(f.read().strip())
+
             if self.allowed_transition(next_zone):
                 # print(f"Transitioning from {self.current_zone} to {next_zone}.")
                 self.current_zone = next_zone
@@ -467,11 +470,13 @@ def location_finder_vespa():
     old_zone = state_machine.current_zone
     state_machine.transition(most_common_char)
     if state_machine.current_zone != old_zone:
+        with open("zone.txt", "w") as f:
+            f.write(state_machine.current_zone)
         print("Current Zone:", state_machine.current_zone)
 
 def main():
-    start_time = time.time()
-    while time.time() - start_time < 1:
+    # start_time = time.time()
+    while True:
         threading.Thread(target=location_finder_vespa, args=()).start()
         time.sleep(1/100)
     # location_finder_vespa()

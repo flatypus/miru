@@ -4,6 +4,7 @@ import { ScaledImageOverlay } from "./ScaledImageOverlay";
 import { MapContainer, useMap } from "react-leaflet";
 import { MaptilerLayer } from "@maptiler/leaflet-maptilersdk";
 import React from "react";
+import LocationMarkers from "./LocationMarkers";
 
 // Custom component to add MapTiler layer
 function MapTilerLayerComponent() {
@@ -34,12 +35,13 @@ function Map({ center, zoom }: MapProps) {
     <MapContainer
       center={[center.lat, center.lng]}
       zoom={zoom}
-      minZoom={3}
-      maxZoom={22}
+      minZoom={16}
+      maxZoom={24}
       scrollWheelZoom={true}
       className="w-screen h-screen"
     >
       <MapTilerLayerComponent />
+      <LocationMarkers />
       <ScaledImageOverlay
         url="/huang.png"
         center={[37.427935, -122.174265]}

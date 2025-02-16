@@ -38,13 +38,6 @@ app.add_middleware(
     allow_headers=["*"],  # Allows all headers
 )
 
-# Global variables
-degrees: float = 0
-last_degrees: float = None
-
-# ser = serial.Serial('/dev/cu.usbmodem1101', 9600, timeout=1)
-# print(f"Connected to {ser.name}")
-# ser.write(b'Hello, serial port!')
 @app.get("/")
 async def root():
     return {"message": "lmfao"}

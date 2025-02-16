@@ -40,7 +40,6 @@ function findPath(
   fScore.set(start, getDistance(start, end));
 
   while (openSet.size > 0) {
-    console.log("openSet", openSet);
     let current = Array.from(openSet).reduce((a, b) => {
       const aScore = fScore.get(a);
       const bScore = fScore.get(b);
@@ -161,9 +160,7 @@ export default function LocationMarkers({
       } else if (mode === "search") {
         const nearest = findNearestFeature(coordinates, locations);
         if (nearest) {
-          console.log("Nearest feature:", nearest.name);
           if (startLocationId && endLocationId) {
-            // Reset both locations and start fresh
             onSelectStart(nearest.id);
             onSelectEnd("");
           } else if (!startLocationId) {

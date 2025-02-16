@@ -17,7 +17,6 @@ export const ScaledImageOverlay = ({
   scaleX = 1,
   scaleY = 1,
   rotation = 0,
-  opacity = 0.8,
 }: ScaledImageOverlayProps) => {
   const [rotatedImageUrl, setRotatedImageUrl] = useState<string>("");
   const [dimensions, setDimensions] = useState({ width: 0, height: 0 });
@@ -45,7 +44,6 @@ export const ScaledImageOverlay = ({
       ctx.save();
       ctx.translate(newWidth / 2, newHeight / 2); // Move to the center of the new canvas
       ctx.rotate(radians); // Apply rotation
-      ctx.globalAlpha = opacity;
 
       // Draw the image centered on the canvas
       ctx.drawImage(
@@ -66,7 +64,7 @@ export const ScaledImageOverlay = ({
       });
     };
     img.src = url;
-  }, [url, rotation, opacity]);
+  }, [url, rotation]);
 
   if (!rotatedImageUrl || !dimensions.width) return null;
 
@@ -89,7 +87,6 @@ export const ScaledImageOverlay = ({
     <ImageOverlay
       url={rotatedImageUrl}
       bounds={bounds as L.LatLngBoundsExpression}
-      opacity={opacity}
     />
   );
 };

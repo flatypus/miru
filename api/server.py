@@ -1,8 +1,8 @@
 from fastapi import FastAPI, WebSocket
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse
 from fastapi.websockets import WebSocketState
 import asyncio
+import serial
 
 app = FastAPI()
 
@@ -18,10 +18,10 @@ app.add_middleware(
 # Global variables
 degrees: float = 0
 last_degrees: float = None
-# try:
-#     ser = serial.Serial('/dev/ttyUSB0', 9600)  # Adjust port as needed
-# except:
-#     print("Warning: Could not connect to serial port")
+
+ser = serial.Serial('/dev/cu.usbmodem1101', 9600, timeout=1)
+print(f"Connected to {ser.name}")
+ser.write(b'Hello, serial port!')
 
 
 @app.get("/")
@@ -60,6 +60,22 @@ async def websocket_endpoint(websocket: WebSocket):
     except Exception as e:
         print("Frontend connection closed")
         await websocket.close()
+
+
+@app.websocket("/ws-for-buttons")
+async def websocket_endpoint_buttons(websocket: WebSocket):
+    await websocket.accept()
+    print("Buttons connection accepted")
+    try:
+        while True:
+            message = await websocket.receive_json()
+            print(f"Received message: {message}")
+            ser.write(str(message["index"]).encode())
+            print(f"Sent message: {message}")
+    except Exception as e:
+        if websocket.client_state == WebSocketState.CONNECTED:
+            await websocket.close()
+        print("Buttons connection closed", e)
 
 
 if __name__ == "__main__":

@@ -1,10 +1,33 @@
 from fastapi import FastAPI, WebSocket
+from fastapi.concurrency import asynccontextmanager
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.websockets import WebSocketState
 import asyncio
 import serial
 
-app = FastAPI()
+degrees: float = 0
+last_degrees: float = None
+
+ser = serial.Serial('/dev/cu.usbmodem1101', 9600, timeout=1)
+print(f"Connected to {ser.name}")
+ser.write(b'Hello, serial port!')
+
+
+async def send_zero():
+    while True:
+        v = open("value.txt", "r").read()
+        print(f"Sending {v} to serial")
+        ser.write(str(v).encode())
+        await asyncio.sleep(3)
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    asyncio.create_task(send_zero())
+    yield
+    ser.close()
+
+app = FastAPI(lifespan=lifespan)
 
 # Add CORS middleware
 app.add_middleware(
@@ -16,12 +39,6 @@ app.add_middleware(
 )
 
 # Global variables
-degrees: float = 0
-last_degrees: float = None
-
-ser = serial.Serial('/dev/cu.usbmodem1101', 9600, timeout=1)
-print(f"Connected to {ser.name}")
-ser.write(b'Hello, serial port!')
 
 
 @app.get("/")
@@ -58,8 +75,9 @@ async def websocket_endpoint(websocket: WebSocket):
                 last_degrees = degrees
             await asyncio.sleep(0.1)
     except Exception as e:
+        if websocket.client_state == WebSocketState.CONNECTED:
+            await websocket.close()
         print("Frontend connection closed")
-        await websocket.close()
 
 
 @app.websocket("/ws-for-buttons")
@@ -70,13 +88,12 @@ async def websocket_endpoint_buttons(websocket: WebSocket):
         while True:
             message = await websocket.receive_json()
             print(f"Received message: {message}")
-            ser.write(str(message["index"]).encode())
-            print(f"Sent message: {message}")
+            with open("value.txt", "w") as f:
+                f.write(str(message["index"]))
     except Exception as e:
         if websocket.client_state == WebSocketState.CONNECTED:
             await websocket.close()
         print("Buttons connection closed", e)
-
 
 if __name__ == "__main__":
     import uvicorn

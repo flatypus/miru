@@ -36,7 +36,7 @@ void pressure(int dir)
     return;
   }
   s->write(s->read() - 30);
-  delay(1000);
+  delay(250);
   s->detach();
 }
 

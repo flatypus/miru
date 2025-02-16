@@ -4,6 +4,7 @@ import threading
 import time
 import mss
 import mss.tools
+import openai
 from dotenv import load_dotenv
 import base64
 import keyboard

@@ -120,6 +120,8 @@ export default function LocationMarkers({
   onSelectEnd,
   degrees,
   setUserLocation,
+  searchPath,
+  setSearchPath,
 }: {
   mode: "edit" | "search" | "track";
   locations: Location[];
@@ -132,6 +134,8 @@ export default function LocationMarkers({
   onSelectEnd: (locationId: string) => void;
   degrees: number;
   setUserLocation: (coordinates: [number, number]) => void;
+  searchPath: string[] | null;
+  setSearchPath: (path: string[] | null) => void;
 }) {
   const [selectedLocationId, setSelectedLocationId] = useState<string | null>(
     null
@@ -141,7 +145,6 @@ export default function LocationMarkers({
     isNaming: boolean;
   } | null>(null);
   const [newLocationName, setNewLocationName] = useState("");
-  const [searchPath, setSearchPath] = useState<string[] | null>(null);
   const [trackedCoordinates, setTrackedCoordinates] = useState<
     {
       coordinates: [number, number];
@@ -158,7 +161,7 @@ export default function LocationMarkers({
     } else {
       setSearchPath(null);
     }
-  }, [startLocationId, endLocationId, locations, edges]);
+  }, [startLocationId, endLocationId, locations, edges, setSearchPath]);
 
   useMapEvents({
     click(e) {

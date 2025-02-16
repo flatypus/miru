@@ -1,22 +1,135 @@
 import { useState, useEffect } from "react";
 import { useMapEvents, Marker, Popup, Polyline } from "react-leaflet";
 import L from "leaflet";
+import { Location, Edge } from "./Map";
 
-interface Location {
-  id: string;
-  name: string;
-  coordinates: [number, number];
+function findPath(
+  start: string,
+  end: string,
+  locations: Location[],
+  edges: Edge[]
+): string[] | null {
+  // Create adjacency list from edges
+  const graph = new Map<string, string[]>();
+  edges.forEach((edge) => {
+    const [a, b] = edge.nodes;
+    if (!graph.has(a)) graph.set(a, []);
+    if (!graph.has(b)) graph.set(b, []);
+    graph.get(a)?.push(b);
+    graph.get(b)?.push(a);
+  });
+
+  // Helper to calculate distance between two locations
+  const getDistance = (id1: string, id2: string): number => {
+    const loc1 = locations.find((l) => l.id === id1);
+    const loc2 = locations.find((l) => l.id === id2);
+    if (!loc1 || !loc2) return Infinity;
+    return Math.sqrt(
+      Math.pow(loc1.coordinates[0] - loc2.coordinates[0], 2) +
+        Math.pow(loc1.coordinates[1] - loc2.coordinates[1], 2)
+    );
+  };
+
+  // A* implementation
+  const openSet = new Set([start]);
+  const cameFrom = new Map<string, string>();
+  const gScore = new Map<string, number>();
+  const fScore = new Map<string, number>();
+
+  gScore.set(start, 0);
+  fScore.set(start, getDistance(start, end));
+
+  while (openSet.size > 0) {
+    console.log("openSet", openSet);
+    let current = Array.from(openSet).reduce((a, b) => {
+      const aScore = fScore.get(a);
+      const bScore = fScore.get(b);
+      return (aScore === undefined ? Infinity : aScore) <
+        (bScore === undefined ? Infinity : bScore)
+        ? a
+        : b;
+    });
+
+    if (current === end) {
+      // Reconstruct path
+      const path = [current];
+      while (cameFrom.has(current)) {
+        current = cameFrom.get(current)!;
+        path.unshift(current);
+      }
+      return path;
+    }
+
+    openSet.delete(current);
+    const neighbors = graph.get(current) || [];
+    for (const neighbor of neighbors) {
+      const currentGScore = gScore.get(current);
+      const tentativeGScore =
+        (currentGScore === undefined ? Infinity : currentGScore) +
+        getDistance(current, neighbor);
+      const neighborGScore = gScore.get(neighbor);
+      if (
+        tentativeGScore <
+        (neighborGScore === undefined ? Infinity : neighborGScore)
+      ) {
+        cameFrom.set(neighbor, current);
+        gScore.set(neighbor, tentativeGScore);
+        fScore.set(neighbor, tentativeGScore + getDistance(neighbor, end));
+        openSet.add(neighbor);
+      }
+    }
+  }
+
+  return null;
 }
 
-interface Edge {
-  id: string;
-  nodes: string[];
+function findNearestFeature(
+  coordinates: [number, number],
+  locations: Location[]
+): Location | null {
+  const validLocations = locations.filter(
+    (loc) => !loc.name.includes("door") && !loc.name.includes("hallway")
+  );
+
+  if (validLocations.length === 0) return null;
+
+  return validLocations.reduce((nearest, loc) => {
+    const distance = Math.sqrt(
+      Math.pow(coordinates[0] - loc.coordinates[0], 2) +
+        Math.pow(coordinates[1] - loc.coordinates[1], 2)
+    );
+
+    const nearestDistance = Math.sqrt(
+      Math.pow(coordinates[0] - nearest.coordinates[0], 2) +
+        Math.pow(coordinates[1] - nearest.coordinates[1], 2)
+    );
+
+    return distance < nearestDistance ? loc : nearest;
+  }, validLocations[0]);
 }
 
 // Component to handle clicks and markers
-export default function LocationMarkers() {
-  const [locations, setLocations] = useState<Location[]>([]);
-  const [edges, setEdges] = useState<Edge[]>([]);
+export default function LocationMarkers({
+  mode,
+  locations,
+  edges,
+  setLocations,
+  setEdges,
+  startLocationId,
+  endLocationId,
+  onSelectStart,
+  onSelectEnd,
+}: {
+  mode: "edit" | "search";
+  locations: Location[];
+  edges: Edge[];
+  setLocations: (locations: Location[]) => void;
+  setEdges: (edges: Edge[]) => void;
+  startLocationId: string | null;
+  endLocationId: string | null;
+  onSelectStart: (locationId: string) => void;
+  onSelectEnd: (locationId: string) => void;
+}) {
   const [selectedLocationId, setSelectedLocationId] = useState<string | null>(
     null
   );
@@ -25,27 +138,40 @@ export default function LocationMarkers() {
     isNaming: boolean;
   } | null>(null);
   const [newLocationName, setNewLocationName] = useState("");
+  const [searchPath, setSearchPath] = useState<string[] | null>(null);
 
-  // Load locations and edges from localStorage
+  // Update path when start or end location changes
   useEffect(() => {
-    const savedLocations = localStorage.getItem("mapLocations");
-    const savedEdges = localStorage.getItem("mapEdges");
-    if (savedLocations) {
-      setLocations(JSON.parse(savedLocations));
+    if (startLocationId && endLocationId) {
+      const path = findPath(startLocationId, endLocationId, locations, edges);
+      setSearchPath(path);
+    } else {
+      setSearchPath(null);
     }
-    if (savedEdges) {
-      setEdges(JSON.parse(savedEdges));
-    }
-  }, []);
+  }, [startLocationId, endLocationId, locations, edges]);
 
   useMapEvents({
     click(e) {
-      if (!e.originalEvent.shiftKey) {
-        const coordinates: [number, number] = [e.latlng.lat, e.latlng.lng];
-        console.log("Clicked coordinates:", coordinates);
+      const coordinates: [number, number] = [e.latlng.lat, e.latlng.lng];
+
+      if (mode === "edit" && !e.originalEvent.shiftKey) {
         setNewLocation({ coordinates, isNaming: true });
         setNewLocationName("");
         setSelectedLocationId(null);
+      } else if (mode === "search") {
+        const nearest = findNearestFeature(coordinates, locations);
+        if (nearest) {
+          console.log("Nearest feature:", nearest.name);
+          if (startLocationId && endLocationId) {
+            // Reset both locations and start fresh
+            onSelectStart(nearest.id);
+            onSelectEnd("");
+          } else if (!startLocationId) {
+            onSelectStart(nearest.id);
+          } else if (!endLocationId) {
+            onSelectEnd(nearest.id);
+          }
+        }
       }
     },
   });
@@ -78,10 +204,9 @@ export default function LocationMarkers() {
     locationId: string,
     event: L.LeafletMouseEvent
   ) => {
-    if (event.originalEvent.shiftKey) {
+    if (mode === "edit" && event.originalEvent.shiftKey) {
       event.originalEvent.stopPropagation();
       if (selectedLocationId && selectedLocationId !== locationId) {
-        // Create new edge
         const newEdge: Edge = {
           id: Date.now().toString(),
           nodes: [selectedLocationId, locationId],
@@ -104,53 +229,78 @@ export default function LocationMarkers() {
 
   return (
     <>
-      {/* Render edges */}
-      {edges.map((edge) => {
-        const [sourceId, targetId] = edge.nodes;
-        const source = locations.find((loc) => loc.id === sourceId);
-        const target = locations.find((loc) => loc.id === targetId);
-        if (!source || !target) return null;
-        return (
-          <Polyline
-            key={edge.id}
-            positions={[source.coordinates, target.coordinates]}
-            color={selectedLocationId ? "#666" : "#00f"}
-            weight={3}
-            eventHandlers={{ click: () => handleDeleteEdge(edge.id) }}
-          />
-        );
-      })}
+      {/* Render path or edges */}
+      {mode === "search" && searchPath ? (
+        // Render search path
+        <Polyline
+          positions={searchPath.map(
+            (id) =>
+              locations.find((loc) => loc.id === id)?.coordinates || [0, 0]
+          )}
+          color="#f00"
+          weight={4}
+          dashArray="10,10"
+        />
+      ) : mode === "edit" ? (
+        // Render edges in edit mode
+        edges.map((edge) => {
+          const [sourceId, targetId] = edge.nodes;
+          const source = locations.find((loc) => loc.id === sourceId);
+          const target = locations.find((loc) => loc.id === targetId);
+          if (!source || !target) return null;
+          return (
+            <Polyline
+              key={edge.id}
+              positions={[source.coordinates, target.coordinates]}
+              color={selectedLocationId ? "#666" : "#00f"}
+              weight={3}
+              eventHandlers={{ click: () => handleDeleteEdge(edge.id) }}
+            />
+          );
+        })
+      ) : null}
 
       {/* Render locations */}
-      {locations.map((location) => (
-        <Marker
-          key={location.id}
-          position={location.coordinates}
-          eventHandlers={{
-            click: (e) => handleMarkerClick(location.id, e),
-          }}
-        >
-          <Popup className="custom-popup">
-            <div className="flex flex-col gap-1">
-              <div className="text-sm">{location.name}</div>
-              <div className="text-[10px] text-gray-500">
-                {selectedLocationId === location.id
-                  ? "Shift-click another location to connect"
-                  : "Shift-click to start connection"}
+      {locations
+        .filter((location) => {
+          if (mode === "edit") return true;
+          return (
+            location.id === startLocationId || location.id === endLocationId
+          );
+        })
+        .map((location) => (
+          <Marker
+            key={location.id}
+            position={location.coordinates}
+            eventHandlers={{
+              click: (e) => handleMarkerClick(location.id, e),
+            }}
+          >
+            <Popup className="custom-popup">
+              <div className="flex flex-col gap-1">
+                <div className="text-sm">{location.name}</div>
+                {mode === "edit" && (
+                  <>
+                    <div className="text-[10px] text-gray-500">
+                      {selectedLocationId === location.id
+                        ? "Shift-click another location to connect"
+                        : "Shift-click to start connection"}
+                    </div>
+                    <button
+                      onClick={() => handleDeleteLocation(location.id)}
+                      className="bg-red-500 text-white px-1.5 py-0.5 rounded text-xs"
+                    >
+                      Delete
+                    </button>
+                  </>
+                )}
               </div>
-              <button
-                onClick={() => handleDeleteLocation(location.id)}
-                className="bg-red-500 text-white px-1.5 py-0.5 rounded text-xs"
-              >
-                Delete
-              </button>
-            </div>
-          </Popup>
-        </Marker>
-      ))}
+            </Popup>
+          </Marker>
+        ))}
 
-      {/* New location marker */}
-      {newLocation && (
+      {/* Only show new location marker in edit mode */}
+      {mode === "edit" && newLocation && (
         <Marker position={newLocation.coordinates}>
           <Popup className="custom-popup">
             <div className="flex flex-col gap-1">

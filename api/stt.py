@@ -1,11 +1,10 @@
 import os
 import queue
 import time
-import torch
-import torchaudio
-import pyaudio
-import numpy as np
 import wave
+import numpy as np
+import pyaudio
+import torch
 from groq import Groq
 from silero_vad import load_silero_vad
 

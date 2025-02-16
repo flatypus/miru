@@ -163,6 +163,7 @@ export default function LocationMarkers({
   useMapEvents({
     click(e) {
       const coordinates: [number, number] = [e.latlng.lat, e.latlng.lng];
+      console.log(coordinates)
 
       if (mode === "edit" && !e.originalEvent.shiftKey) {
         setNewLocation({ coordinates, isNaming: true });

@@ -77,9 +77,16 @@ function Map({ center, zoom }: MapProps) {
     // websocket to get location data
     const ws_frontend = new WebSocket("ws://localhost:4000/ws-for-frontend");
     ws_frontend.onmessage = (event) => {
-      const { data } = JSON.parse(event.data);
-      setUserDegrees(data);
-    };
+      const {data} = JSON.parse(event.data);
+      const {degrees, coordinates} = data;
+      // console.log(coordinates)
+      setUserDegrees(degrees);
+      setUserLocation([
+          parseFloat(coordinates[0]),
+          parseFloat(coordinates[1])
+        ]
+      );
+    }
 
     ws.current = new WebSocket("ws://localhost:4000/ws-for-buttons");
   }, []);

@@ -598,7 +598,7 @@ def location_finder_vespa_big():
     distance = geopy.distance.distance(old_coords, new_coords).meters
 
     if distance > 5.0:
-        # print(f"Distance: {distance}m")
+        print(f"Distance: {distance}m")
         return
 
     with open("coordinates.txt", "w") as file:

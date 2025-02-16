@@ -49,10 +49,13 @@ function Map({ center, zoom }: MapProps) {
   const [endLocationId, setEndLocationId] = useState<string | null>(null);
   const [userDegrees, setUserDegrees] = useState<number>(0);
   const [calibrationDegrees, setCalibrationDegrees] = useState<number>(0);
+  const [targetDegrees, setTargetDegrees] = useState<number>(0);
+  const [lastUpdate, setLastUpdate] = useState<number>(new Date().getTime());
   const [userLocation, setUserLocation] = useState<[number, number]>([
     37.427935, -122.174265,
   ]);
   const ws = useRef<WebSocket | null>(null);
+  const [updateHook, setUpdateHook] = useState<number>(0);
 
   // Load saved data including calibration
   useEffect(() => {
@@ -81,6 +84,39 @@ function Map({ center, zoom }: MapProps) {
     ws.current = new WebSocket("ws://localhost:4000/ws-for-buttons");
   }, []);
 
+  useEffect(() => {
+    setInterval(() => {
+      setUpdateHook((_updateHook) => _updateHook + 1);
+    }, 1000);
+  }, []);
+
+  useEffect(() => {
+    const now = new Date().getTime();
+    if (lastUpdate + 3000 < now) {
+      let diff = Math.round(
+        (targetDegrees - (userDegrees + calibrationDegrees)) % 360
+      );
+      if (diff > 180) {
+        diff -= 360;
+      } else if (diff < -180) {
+        diff += 360;
+      }
+      setLastUpdate(now);
+      console.log(diff);
+      if (Math.abs(diff) < 10) {
+        ws.current?.send(JSON.stringify({ index: 0 }));
+      } else if (diff < 0 && diff > -90) {
+        ws.current?.send(JSON.stringify({ index: 1 }));
+      } else if (diff > 0 && diff < 90) {
+        ws.current?.send(JSON.stringify({ index: 2 }));
+      } else if (diff < -90) {
+        ws.current?.send(JSON.stringify({ index: 3 }));
+      } else if (diff > 90) {
+        ws.current?.send(JSON.stringify({ index: 4 }));
+      }
+    }
+  }, [calibrationDegrees, targetDegrees, userDegrees, lastUpdate, updateHook]);
+
   return (
     <div className="relative">
       <div className="absolute top-20 left-4 z-[10000] flex justify-center items-center gap-2 flex-col">
@@ -90,7 +126,7 @@ function Map({ center, zoom }: MapProps) {
               key={button}
               className="bg-white rounded-lg p-2 text-black border-2 border-black text-sm hover:scale-105 transition-all duration-150 cursor-pointer active:scale-95"
               onClick={() => {
-                ws.current?.send(JSON.stringify({ button: button, index }));
+                ws.current?.send(JSON.stringify({ index }));
               }}
             >
               Trigger {button}
@@ -107,6 +143,19 @@ function Map({ center, zoom }: MapProps) {
           max={360}
           value={calibrationDegrees}
           onChange={(e) => setCalibrationDegrees(Number(e.target.value))}
+        />
+
+        <p className="text-black text-sm">
+          User degrees: +{Math.round((userDegrees + calibrationDegrees) % 360)}°
+        </p>
+        <p className="text-black text-sm">Target degrees: +{targetDegrees}°</p>
+        <input
+          className="w-full"
+          type="range"
+          min={0}
+          max={360}
+          value={targetDegrees}
+          onChange={(e) => setTargetDegrees(Number(e.target.value))}
         />
       </div>
       <MapContainer
@@ -142,9 +191,16 @@ function Map({ center, zoom }: MapProps) {
         <ScaledImageOverlay
           url="/you.png"
           center={userLocation}
-          scaleX={0.1}
-          scaleY={0.1}
+          scaleX={0.025}
+          scaleY={0.025}
           rotation={userDegrees + calibrationDegrees}
+        />
+        <ScaledImageOverlay
+          url="/target.png"
+          center={userLocation}
+          scaleX={0.025}
+          scaleY={0.025}
+          rotation={targetDegrees}
         />
       </MapContainer>
       <SearchPanel

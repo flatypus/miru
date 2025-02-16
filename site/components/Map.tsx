@@ -49,6 +49,9 @@ function Map({ center, zoom }: MapProps) {
   const [endLocationId, setEndLocationId] = useState<string | null>(null);
   const [userDegrees, setUserDegrees] = useState<number>(0);
   const [calibrationDegrees, setCalibrationDegrees] = useState<number>(0);
+  const [userLocation, setUserLocation] = useState<[number, number]>([
+    37.427935, -122.174265,
+  ]);
   const ws = useRef<WebSocket | null>(null);
 
   // Load saved data including calibration
@@ -81,17 +84,19 @@ function Map({ center, zoom }: MapProps) {
   return (
     <div className="relative">
       <div className="absolute top-20 left-4 z-[10000] flex justify-center items-center gap-2 flex-col">
-        {["Button #1", "Button #2", "Button #3"].map((button, index) => (
-          <button
-            key={button}
-            className="bg-white rounded-lg p-2 text-black border-2 border-black text-sm hover:scale-105 transition-all duration-150 cursor-pointer active:scale-95"
-            onClick={() => {
-              ws.current?.send(JSON.stringify({ button: button, index }));
-            }}
-          >
-            Trigger {button}
-          </button>
-        ))}
+        {["FRONT", "FRONT LEFT", "FRONT RIGHT", "LEFT", "RIGHT"].map(
+          (button, index) => (
+            <button
+              key={button}
+              className="bg-white rounded-lg p-2 text-black border-2 border-black text-sm hover:scale-105 transition-all duration-150 cursor-pointer active:scale-95"
+              onClick={() => {
+                ws.current?.send(JSON.stringify({ button: button, index }));
+              }}
+            >
+              Trigger {button}
+            </button>
+          )
+        )}
         <p className="text-black text-sm">
           Calibration: +{calibrationDegrees}°
         </p>
@@ -123,6 +128,8 @@ function Map({ center, zoom }: MapProps) {
           endLocationId={endLocationId}
           onSelectStart={setStartLocationId}
           onSelectEnd={setEndLocationId}
+          degrees={userDegrees + calibrationDegrees}
+          setUserLocation={setUserLocation}
         />
         <ScaledImageOverlay
           url="/huang.png"
@@ -134,7 +141,7 @@ function Map({ center, zoom }: MapProps) {
         />
         <ScaledImageOverlay
           url="/you.png"
-          center={[37.427935, -122.174265]}
+          center={userLocation}
           scaleX={0.1}
           scaleY={0.1}
           rotation={userDegrees + calibrationDegrees}

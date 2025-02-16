@@ -118,8 +118,10 @@ export default function LocationMarkers({
   endLocationId,
   onSelectStart,
   onSelectEnd,
+  degrees,
+  setUserLocation,
 }: {
-  mode: "edit" | "search";
+  mode: "edit" | "search" | "track";
   locations: Location[];
   edges: Edge[];
   setLocations: (locations: Location[]) => void;
@@ -128,6 +130,8 @@ export default function LocationMarkers({
   endLocationId: string | null;
   onSelectStart: (locationId: string) => void;
   onSelectEnd: (locationId: string) => void;
+  degrees: number;
+  setUserLocation: (coordinates: [number, number]) => void;
 }) {
   const [selectedLocationId, setSelectedLocationId] = useState<string | null>(
     null
@@ -138,6 +142,13 @@ export default function LocationMarkers({
   } | null>(null);
   const [newLocationName, setNewLocationName] = useState("");
   const [searchPath, setSearchPath] = useState<string[] | null>(null);
+  const [trackedCoordinates, setTrackedCoordinates] = useState<
+    {
+      coordinates: [number, number];
+      time: number;
+      degrees: number;
+    }[]
+  >([]);
 
   // Update path when start or end location changes
   useEffect(() => {
@@ -169,6 +180,14 @@ export default function LocationMarkers({
             onSelectEnd(nearest.id);
           }
         }
+      } else if (mode === "track") {
+        const newTrackedCoordinates = [
+          ...trackedCoordinates,
+          { coordinates, time: Date.now(), degrees },
+        ];
+        setUserLocation(coordinates);
+        setTrackedCoordinates(newTrackedCoordinates);
+        console.log(newTrackedCoordinates);
       }
     },
   });

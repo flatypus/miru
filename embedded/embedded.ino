@@ -18,11 +18,11 @@ void pressure(int dir)
     break;
   case 1:
     s = &servoFWD_LEFT;
-    s->attach(9);
+    s->attach(5);
     break;
   case 2:
     s = &servoFWD_RIGHT;
-    s->attach(5);
+    s->attach(9);
     break;
   case 3:
     s = &servoLEFT;

@@ -8,16 +8,16 @@ import serial
 degrees: float = 0
 last_degrees: float = None
 
-ser = serial.Serial('/dev/cu.usbmodem1101', 9600, timeout=1)
-print(f"Connected to {ser.name}")
-ser.write(b'Hello, serial port!')
+# ser = serial.Serial('/dev/cu.usbmodem1101', 9600, timeout=1)
+# print(f"Connected to {ser.name}")
+# ser.write(b'Hello, serial port!')
 
 
 async def send_zero():
     while True:
         v = open("value.txt", "r").read()
         print(f"Sending {v} to serial")
-        ser.write(str(v).encode())
+        # ser.write(str(v).encode())
         await asyncio.sleep(3)
 
 
@@ -47,6 +47,7 @@ last_degrees: float = None
 # ser = serial.Serial('/dev/cu.usbmodem1101', 9600, timeout=1)
 # print(f"Connected to {ser.name}")
 # ser.write(b'Hello, serial port!')
+
 
 @app.get("/")
 async def root():

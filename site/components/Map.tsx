@@ -82,16 +82,12 @@ function Map({ center, zoom }: MapProps) {
     // websocket to get location data
     const ws_frontend = new WebSocket("ws://localhost:4000/ws-for-frontend");
     ws_frontend.onmessage = (event) => {
-      const {data} = JSON.parse(event.data);
-      const {degrees, coordinates} = data;
+      const { data } = JSON.parse(event.data);
+      const { degrees, coordinates } = data;
       // console.log(coordinates)
       setUserDegrees(degrees);
-      setUserLocation([
-          parseFloat(coordinates[0]),
-          parseFloat(coordinates[1])
-        ]
-      );
-    }
+      setUserLocation([parseFloat(coordinates[0]), parseFloat(coordinates[1])]);
+    };
 
     ws.current = new WebSocket("ws://localhost:4000/ws-for-buttons");
   }, []);
@@ -187,6 +183,80 @@ function Map({ center, zoom }: MapProps) {
     },
     [searchPath, locations]
   );
+
+  useEffect(() => {
+    if (!searchPath || searchPath.length < 2) {
+      setProgress(0);
+      return;
+    }
+
+    const path = searchPath.map((id) => locations.find((l) => l.id === id));
+
+    // Calculate total path distance and find closest point
+    let totalDistance = 0;
+    let minDistance = Infinity;
+    let closestSegmentStart = 0;
+    let closestPoint: [number, number] = [0, 0];
+
+    for (let i = 0; i < path.length - 1; i++) {
+      const current = path[i];
+      const next = path[i + 1];
+      if (!current || !next) continue;
+
+      // Calculate segment distance for total
+      const segmentDistance = Math.sqrt(
+        Math.pow(current.coordinates[0] - next.coordinates[0], 2) +
+          Math.pow(current.coordinates[1] - next.coordinates[1], 2)
+      );
+
+      // Find closest point on this segment
+      const dx = next.coordinates[0] - current.coordinates[0];
+      const dy = next.coordinates[1] - current.coordinates[1];
+      const segmentLengthSquared = dx * dx + dy * dy;
+
+      // Calculate projection of point onto line segment
+      const t = Math.max(
+        0,
+        Math.min(
+          1,
+          ((userLocation[0] - current.coordinates[0]) * dx +
+            (userLocation[1] - current.coordinates[1]) * dy) /
+            segmentLengthSquared
+        )
+      );
+
+      const projectedPoint: [number, number] = [
+        current.coordinates[0] + t * dx,
+        current.coordinates[1] + t * dy,
+      ];
+
+      // Calculate distance to projected point
+      const distance = Math.sqrt(
+        Math.pow(userLocation[0] - projectedPoint[0], 2) +
+          Math.pow(userLocation[1] - projectedPoint[1], 2)
+      );
+
+      if (distance < minDistance) {
+        minDistance = distance;
+        closestPoint = projectedPoint;
+        closestSegmentStart = totalDistance;
+      }
+
+      totalDistance += segmentDistance;
+    }
+
+    // Calculate progress to closest point
+    let progressDistance = closestSegmentStart;
+    const current = path[0];
+    if (current) {
+      progressDistance += Math.sqrt(
+        Math.pow(closestPoint[0] - current.coordinates[0], 2) +
+          Math.pow(closestPoint[1] - current.coordinates[1], 2)
+      );
+    }
+
+    setProgress(Math.round((progressDistance / totalDistance) * 100));
+  }, [userLocation, searchPath, locations]);
 
   useEffect(() => {
     const progressLocation = getProgressLocation(progress);

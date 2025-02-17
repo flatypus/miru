@@ -58,6 +58,7 @@ def chat_loop():
     conversation_history = [
         {"role": "system", "content": system_prompt},
         {"role": "assistant", "content": "Hey Michael! Where do you want to go?"}
+    ]
 
     tts_engine.speak("Hey Michael! Where do you want to go?")
 

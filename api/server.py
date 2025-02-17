@@ -8,12 +8,9 @@ import serial
 degrees: float = 0
 last_degrees: float = None
 
-try:
-    ser = serial.Serial('/dev/cu.usbmodem2101', 9600, timeout=1)
-    print(f"Connected to {ser.name}")
-    ser.write(b'Hello, serial port!')
-except:
-    pass
+ser = serial.Serial('/dev/cu.usbmodem2101', 9600, timeout=1)
+print(f"Connected to {ser.name}")
+ser.write(b'Hello, serial port!')
 
 
 async def send_zero():

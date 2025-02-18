@@ -1,7 +1,10 @@
 # Treehacks 2025: 
 ## 🏠 Miru: Indoor Navigation for the Visually Impaired  
 
-![Map Image](assets/img.png)
+<p float="left">
+   <img src="/assets/img.png" width="504" /> 
+  <img src="https://github.com/user-attachments/assets/8d32c9e0-c16d-4ccf-98b5-19fc11a33543" width="496" />
+</p>
 
 ## 🚀 Inspiration  
 Over **20 million Americans** experience visual impairment, with **1 million classified as legally blind**. While GPS-based navigation tools exist for outdoor spaces, indoor navigation remains a major challenge due to **GPS limitations and lack of reliable spatial data**.  

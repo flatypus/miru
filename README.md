@@ -18,7 +18,7 @@ With the rise of **smart glasses** like Meta Ray-Ban and Apple Vision Pro, we sa
 
 1. **Upload a Floor Plan**  
    - Extracts architectural features using **Canny edge detection**.  
-   - Generates **waypoints and navigation paths** using **A* pathfinding**.  
+   - Generates **waypoints and navigation paths** using **A\* pathfinding**.  
 
 2. **Wear Meta Ray-Ban Smart Glasses**  
    - Streams live video for **real-time localization**.  

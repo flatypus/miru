@@ -1,9 +1,9 @@
 # Treehacks 2025: 
 ## 🏠 Miru: Indoor Navigation for the Visually Impaired  
 
-<p float="left">
-   <img src="/assets/img.png" width="504" /> 
-  <img src="https://github.com/user-attachments/assets/8d32c9e0-c16d-4ccf-98b5-19fc11a33543" width="496" />
+<p float="center">
+   <img src="/assets/img.png" width="498" /> 
+  <img src="https://github.com/user-attachments/assets/8d32c9e0-c16d-4ccf-98b5-19fc11a33543" width="490" />
 </p>
 
 ## 🚀 Inspiration  

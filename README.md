@@ -1,5 +1,5 @@
-# Treehacks 2025: 
-## 🏠 Miru: Indoor Navigation for the Visually Impaired  
+# 🏠 Miru: Indoor Navigation for the Visually Impaired
+## 🏆 Treehacks 2025 - Best Use of VLMs
 
 ![miru](https://github.com/user-attachments/assets/b4222674-a848-459b-96d1-9c1edadeba85)
 

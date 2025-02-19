@@ -2,8 +2,8 @@
 ## 🏠 Miru: Indoor Navigation for the Visually Impaired  
 
 <p float="center">
-   <img src="/assets/img.png" width="498" /> 
-  <img src="https://github.com/user-attachments/assets/8d32c9e0-c16d-4ccf-98b5-19fc11a33543" width="490" />
+   <img src="/assets/img.png" width="350" /> 
+  <img src="https://github.com/user-attachments/assets/8d32c9e0-c16d-4ccf-98b5-19fc11a33543" width="344" />
 </p>
 
 ## 🚀 Inspiration  
